@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import pool from '../config/dbConnection';
 import authenticate from '../config/authentication';
+import { randomUUID } from 'crypto';
 
 
 const walletRouter = Router();
@@ -22,9 +23,9 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
             return;
         }
 
-        console.log('isbn from req.body: ' + req.body.isbn);
+        // console.log('isbn from req.body: ' + req.body.isbn);
   
-        pool.query('SELECT * FROM books WHERE isbn=?', [req.body.isbn], (err: any, rows: any) => {
+        pool.query('SELECT * FROM users WHERE email=?', [currentUserEmail], (err: any, rows: any) => {
             if(err){
                 console.log('Encountered an error: ', err);
                 conn.release();
@@ -35,18 +36,19 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
                 });      
             }
     
-            if(rows.length >= 1){   // ISBN already exists
+            if(rows.length < 1){   
                 conn.release();
 
                 return res.send({
-                    message: 'Book with ISBN already exists',
-                    statusCode: 409,
+                    message: 'User not found',
+                    statusCode: 404,
                 });
             } else {
-                const sqlQuery = `INSERT INTO books(isbn, title, author, year_published) VALUES (?,?,?,?)`;
-                const { isbn, title, author, yearPublished } = req.body;
+                // User exists, create wallet for user
+                const userId = rows[0].user_id;
+                const searchQuery = 'SELECT * FROM wallets WHERE user_id=?';
 
-                pool.query(sqlQuery, [isbn, title, author, yearPublished], (err: any, rows: any) => {
+                pool.query(searchQuery, [userId], (err: any, rows: any) => {
                     if(err){
                         console.log('Encountered an error: ', err);
                         conn.release();
@@ -56,21 +58,50 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
                             statusCode: 400
                         });      
                     }
-            
-                    res.send({
-                        message: 'Successul',
-                        statusCode: 200,
-                        // data: rows
+
+                    if(rows.length >= 1){   
+                        conn.release();
+        
+                        return res.send({
+                            message: 'User already has a wallet',
+                            statusCode: 409,
+                        });
+                    }
+
+                    const sqlQuery = `INSERT INTO wallets(wallet_id, user_id, balance) VALUES (?,?,?)`;
+                    // const { walletId, userId, balance } = req.body;
+
+                    pool.query(sqlQuery, [randomUUID(), userId, 0.0], (err: any, rows: any) => {
+                        if(err){
+                            console.log('Encountered an error: ', err);
+                            conn.release();
+                    
+                            return res.send({
+                                success: false,
+                                statusCode: 400
+                            });      
+                        }
+                
+                        res.send({
+                            message: 'Successul',
+                            statusCode: 200,
+                            // data: rows
+                        });
+                
+                        conn.release();   // close connection
                     });
-            
-                    conn.release();   // close connection
+
                 });
+
             }
     
         });
       
     });
-}); 
+});
+
+
+// use inner join for updating balance
 
 
 export default walletRouter;
