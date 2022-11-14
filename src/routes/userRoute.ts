@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import bcrypt from 'bcrypt';
 import pool from '../config/dbConnection';
 import generateToken from '../config/generateToken';
 import authenticate from '../config/authentication';
 var cacheService = require("express-api-cache");
 var cache = cacheService.cache;
+// const uuid = require('uuid').v4
+// import uuid from 'uuid';
+import { randomUUID } from 'crypto';
 
 
 const saltround = 10;
@@ -85,9 +87,9 @@ userRouter.post('/register', (req: Request, res: Response) => {
                 return;
             } else {
                 // console.log('req.body: ' + req.body);
-                let sqlQuery = `call registeruser(?,?,?)`;  // stored procedure on phpmyadmin
+                let sqlQuery = `call registeruser(?,?,?,?)`;  // stored procedure on phpmyadmin
         
-                conn.query(sqlQuery, [req.body.email, req.body.phone, hash], (err: any, rows: any) => {
+                conn.query(sqlQuery, [randomUUID(), req.body.email, req.body.phone, hash], (err: any, rows: any) => {
                     if(err){
                         console.log('Encountered an error: ', err);
                         conn.release();
@@ -142,6 +144,8 @@ userRouter.post('/login', (req: Request, res: Response) => {
             const passwordfromDB = rows[0].password;
             bcrypt.compare(req.body.password, passwordfromDB, (err, result) => {
                 if(err){
+                    console.log("first error");
+                    
                     res.send({
                         message: "Failed",
                         statusCode: 500,
@@ -156,10 +160,12 @@ userRouter.post('/login', (req: Request, res: Response) => {
                         data: { token: generateToken(req.body.email) }
                     });
                 } else {
+                    console.log("2nd error: " + err);
+                    
                     res.send({
                         message: "Failed",
                         statusCode: 500,
-                        data: err
+                        data: result
                     });
                 }
             });
@@ -169,27 +175,5 @@ userRouter.post('/login', (req: Request, res: Response) => {
     });
 });
 
-//////////////////// BULK ADD BOOKS ///////////////////////////
-userRouter.post('/register-bulk', authenticate, (req: Request, res: Response) => { 
-    for (let i = 10; i < 17; i++) {
-        axios.post('http://localhost:5000/users/register', {
-            email: `testbulk${i++}@gmail.com`,
-            phone: `44444${i++}9999`,
-            password: 'Testing123',
-        })
-        .then((response) => {
-            console.log('response from axios -->' + response);    
-        })
-        .catch((error) => {
-            console.log('error from axios -->' + error);    
-        });
-        
-    }
-
-    res.send({
-        message: 'Success',
-        statusCode: 200,
-    });
-});
 
 export default userRouter;
