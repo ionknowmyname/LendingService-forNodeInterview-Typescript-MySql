@@ -5,7 +5,7 @@ import generateToken from '../config/generateToken';
 import authenticate from '../config/authentication';
 var cacheService = require("express-api-cache");
 var cache = cacheService.cache;
-// const uuid = require('uuid').v4
+const uuid = require('uuid').v4
 // import uuid from 'uuid';
 import { randomUUID } from 'crypto';
 
@@ -88,15 +88,18 @@ userRouter.post('/register', (req: Request, res: Response) => {
             } else {
                 // console.log('req.body: ' + req.body);
                 let sqlQuery = `call registeruser(?,?,?,?)`;  // stored procedure on phpmyadmin
+                let sqlQuery2 = `INSERT INTO users (user_id, email, phone, password) VALUES (?,?,?,?)`;
+                const { email, phone } = req.body;
         
-                conn.query(sqlQuery, [randomUUID(), req.body.email, req.body.phone, hash], (err: any, rows: any) => {
+                conn.query(sqlQuery2, [uuid(), email, phone, hash], (err: any, rows: any) => {
                     if(err){
                         console.log('Encountered an error: ', err);
                         conn.release();
                 
                         return res.send({
                             success: false,
-                            statusCode: 400
+                            statusCode: 400,
+                            error: err
                         });      
                     }
             
@@ -150,7 +153,9 @@ userRouter.post('/login', (req: Request, res: Response) => {
                         message: "Failed",
                         statusCode: 500,
                         data: err
-                    });
+                    })
+
+                    return;
                 }
 
                 if(result){
@@ -167,6 +172,8 @@ userRouter.post('/login', (req: Request, res: Response) => {
                         statusCode: 500,
                         data: result
                     });
+
+                    return;
                 }
             });
             
