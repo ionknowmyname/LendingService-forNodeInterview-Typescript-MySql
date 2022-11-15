@@ -3,7 +3,7 @@ import pool from '../config/dbConnection';
 import authenticate from '../config/authentication';
 const uuid = require('uuid').v4
 import findUserIdFromEmail from '../utils/userUtils';
-import checkWalletExists from '../utils/walletUtils';
+import getWalletByWalletId from '../utils/walletUtils';
 
 
 const transactionRouter = Router();
@@ -23,8 +23,8 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
         receiverBankAccount 
     } = req.body;
 
-    // pool.connect((err: any, conn: any) => {
-        /* if(err){
+    pool.getConnection((err: any, conn: any) => {
+        if(err){
             console.log('Entered an error: ', err);
             res.send({
                 success: false,
@@ -33,16 +33,17 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
             }) 
             
             return;
-        } */
+        } 
   
         // make sure sender wallet exist
+
         // const sqlQuery = 'SELECT * FROM wallets WHERE wallet_id IN (?, ?)';
         const sqlQuery = 'SELECT * FROM wallets WHERE wallet_id=?';
 
-        pool.query(sqlQuery, [senderWalletId], (err: any, rows: any) => {
+        pool.query(sqlQuery, [senderWalletId], async (err: any, rows: any) => {
             if(err){
                 console.log('Encountered an error: ', err);
-                //conn.release();
+                conn.release();
         
                 return res.send({
                     success: false,
@@ -51,7 +52,7 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
             }
     
             if(rows.length < 1){   
-                //conn.release();
+                conn.release();
 
                 return res.send({
                     message: 'Sender wallet not found',
@@ -61,7 +62,7 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
 
             // make sure logged in user is the owner of sender wallet
             if(rows[0].user_id !== currentUserId){   
-                //conn.release();
+                conn.release();
 
                 return res.send({
                     message: 'Logged in User cannot transact with this wallet',
@@ -70,17 +71,22 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
             }
 
             // make sure receiver exists 
-            const walletExists: boolean = checkWalletExists(receiverWalletId);
+            const receiverWalletDetails = await getWalletByWalletId(receiverWalletId);
+            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.wallet_id);
+            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.user_id);
+            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.balance);
+            
+            const { wallet_id, user_id, balance } = receiverWalletDetails;
 
             // no need to check if bank account exists, 3rd party integration would handle that
 
-            if(walletExists){   
+            if(wallet_id !== null){   
                 // check if wallet balance is sufficient 
                 
-                const currentBalance = rows[0].balance;
+                const senderCurrentBalance = rows[0].balance;
 
-                if(currentBalance < transactionAmount){
-                    //conn.release();
+                if(senderCurrentBalance < transactionAmount){
+                    conn.release();
 
                     return res.send({
                         message: 'You do not have sufficient balance to make this transaction',
@@ -97,7 +103,7 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
 
                     if(err){
                         console.log('Encountered an error: ', err);
-                        //conn.release();
+                        conn.release();
                 
                         return res.send({
                             success: false,
@@ -107,12 +113,12 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
 
                     // update sender wallet balance
                     const sqlQuery3 = `UPDATE wallets SET balance=? WHERE wallet_id=?`;
-                    const newBalance = currentBalance - transactionAmount; 
+                    const senderNewBalance = senderCurrentBalance - transactionAmount; 
                     
-                    pool.query(sqlQuery3, [newBalance, senderWalletId], (err: any, rows: any) => {
+                    pool.query(sqlQuery3, [senderNewBalance, senderWalletId], (err: any, rows: any) => {
                         if(err){
                             console.log('Encountered an error: ', err);
-                            // conn.release();
+                            conn.release();
                     
                             return res.send({
                                 success: false,
@@ -122,7 +128,35 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
 
                         // nothing was updated, throw error
                         if(rows.affectedRows < 1){  
-                            // conn.release();
+                            conn.release();
+            
+                            return res.send({
+                                message: 'Wallet balance update failed',
+                                statusCode: 400,
+                            });
+                        }
+
+                        // don't release connection yet
+                    });
+
+
+                    // update receiver balance
+                    const receiverNewBalance = balance + transactionAmount;
+
+                    pool.query(sqlQuery3, [receiverNewBalance, wallet_id], (err: any, rows: any) => {
+                        if(err){
+                            console.log('Encountered an error: ', err);
+                            conn.release();
+                    
+                            return res.send({
+                                success: false,
+                                statusCode: 400
+                            });      
+                        }
+
+                        // nothing was updated, throw error
+                        if(rows.affectedRows < 1){  
+                            conn.release();
             
                             return res.send({
                                 message: 'Wallet balance update failed',
@@ -140,10 +174,10 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
                         // data: rows
                     });
             
-                    // conn.release();   // close connection
+                    conn.release();   // close connection
                 });
             } else {
-                // conn.release();
+                conn.release();
 
                 return res.send({
                     message: 'Receiver wallet does not exist',
@@ -153,7 +187,7 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
             
         });
       
-    // });
+    });
 });
 
 export default transactionRouter;

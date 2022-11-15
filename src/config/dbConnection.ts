@@ -3,12 +3,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const pool = mysql.createConnection({  // createPool
+const pool = mysql.createPool({  //  createConnection
     host: process.env.HOST,
     user: process.env.USER,
     password: process.env.PASSWORD,
     database: process.env.DATABASE,
-    // connectionLimit: 10,
+    connectionLimit: 10,
     multipleStatements: true
 });
 

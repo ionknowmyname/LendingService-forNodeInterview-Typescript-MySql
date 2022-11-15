@@ -17,53 +17,53 @@ userRouter.get('/', (req: Request, res: Response) => {
     return res.json("OK");
 });
 
-// userRouter.get('/all', authenticate, cache("10 minutes"), (req: Request, res: Response) => {
+userRouter.get('/all', authenticate, cache("10 minutes"), (req: Request, res: Response) => {
 
-//     pool.getConnection((err: any, conn: any) => {
-//         if(err){
-//             console.log('Entered an error: ', err);
-//             res.send({
-//                 success: false,
-//                 statusCode: 500,
-//                 message: 'Error during connection'
-//             }) 
+    pool.getConnection((err: any, conn: any) => {
+        if(err){
+            console.log('Entered an error: ', err);
+            res.send({
+                success: false,
+                statusCode: 500,
+                message: 'Error during connection'
+            }) 
             
-//             return;
-//         }
+            return;
+        }
 
-//         const sqlQuery = 'SELECT id, email, phone, createdAt FROM users';
-//         pool.query(sqlQuery, (err: any, rows: any) => {
-//             if(err){
-//                 console.log('Encountered an error: ', err);
-//                 conn.release();
+        const sqlQuery = 'SELECT id, email, phone, createdAt FROM users';
+        pool.query(sqlQuery, (err: any, rows: any) => {
+            if(err){
+                console.log('Encountered an error: ', err);
+                conn.release();
         
-//                 return res.send({
-//                     success: false,
-//                     statusCode: 400
-//                 });      
-//             }
+                return res.send({
+                    success: false,
+                    statusCode: 400
+                });      
+            }
     
-//             if(rows.length < 1){  // DB table is empty
-//                 return res.send({
-//                     message: 'No Data found',
-//                     statusCode: 404,
-//                 });
-//             }
+            if(rows.length < 1){  // DB table is empty
+                return res.send({
+                    message: 'No Data found',
+                    statusCode: 404,
+                });
+            }
     
-//             res.send({
-//                 message: 'Successul',
-//                 statusCode: 200,
-//                 data: rows
-//             });
+            res.send({
+                message: 'Successul',
+                statusCode: 200,
+                data: rows
+            });
     
-//             conn.release();   // close connection
-//         });
-//     });
-// });
+            conn.release();   // close connection
+        });
+    });
+});
   
 userRouter.post('/register', (req: Request, res: Response) => {
   
-    pool.connect((err: any, conn: any) => {
+    pool.getConnection((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({
@@ -120,7 +120,7 @@ userRouter.post('/register', (req: Request, res: Response) => {
 
 userRouter.post('/login', (req: Request, res: Response) => {
   
-    pool.connect((err: any, conn: any) => {
+    pool.getConnection((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({

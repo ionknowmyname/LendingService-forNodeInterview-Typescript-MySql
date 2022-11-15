@@ -11,7 +11,7 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
     // console.log("(<any>req).user from Books: " + (<any>req).user);
     const currentUserEmail =  (<any>req).user;
 
-    pool.connect((err: any, conn: any) => {
+    pool.getConnection((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({

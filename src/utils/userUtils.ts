@@ -2,7 +2,6 @@ import pool from "../config/dbConnection";
 
 const findUserIdFromEmail: any = async (email: any) => {
     
-
     const sqlQuery = 'SELECT * FROM users WHERE email=?';
 
     const fromPromise = new Promise((resolve, reject) => {
@@ -31,14 +30,10 @@ const findUserIdFromEmail: any = async (email: any) => {
     });
 
 
-
-    const currentUserId2 = await fromPromise as any;
-    console.log("currentUserId from userUtils  --> " + currentUserId2.user_id);
+    const currentUser = await fromPromise as any;
+    console.log("currentUserId from userUtils  --> " + currentUser.user_id);
     
-    return currentUserId2.user_id;
-
-
-    
+    return currentUser.user_id;    
 }
 
 export default findUserIdFromEmail;
