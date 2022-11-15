@@ -6,7 +6,7 @@ import transactionRouter from './transactionRoute';
 const router = Router();
 
 router.use('/users', userRouter);
-router.use('/wallet', walletRouter);
+router.use('/wallets', walletRouter);
 router.use('/transactions', transactionRouter);
 
 export default router;

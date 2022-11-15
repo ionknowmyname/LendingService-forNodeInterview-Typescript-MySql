@@ -1,9 +1,9 @@
 import pool from "../config/dbConnection";
 
-const checkWalletExists: any = async function findWallet(walletId: string) {
+const checkWalletExists: any = async (walletId: string) => {
     
 
-    await pool.getConnection((err: any, conn: any) => {
+    await pool.connect((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             

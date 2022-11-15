@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import pool from '../config/dbConnection';
 import authenticate from '../config/authentication';
-import { randomUUID } from 'crypto';
+const uuid = require('uuid').v4
 
 
 const walletRouter = Router();
@@ -11,7 +11,7 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
     // console.log("(<any>req).user from Books: " + (<any>req).user);
     const currentUserEmail =  (<any>req).user;
 
-    pool.getConnection((err: any, conn: any) => {
+    pool.connect((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({
@@ -59,6 +59,7 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
                         });      
                     }
 
+                    // add unique constraint to DB for user_id
                     if(rows.length >= 1){   
                         conn.release();
         
@@ -71,7 +72,7 @@ walletRouter.post('/create', authenticate, (req: Request, res: Response) => {
                     const sqlQuery = `INSERT INTO wallets(wallet_id, user_id, balance) VALUES (?,?,?)`;
                     // const { walletId, userId, balance } = req.body;
 
-                    pool.query(sqlQuery, [randomUUID(), userId, 0.0], (err: any, rows: any) => {
+                    pool.query(sqlQuery, [uuid(), userId, 0.0], (err: any, rows: any) => {
                         if(err){
                             console.log('Encountered an error: ', err);
                             conn.release();
