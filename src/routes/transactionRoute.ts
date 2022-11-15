@@ -56,6 +56,9 @@ transactionRouter.post('/transfer', authenticate, (req: Request, res: Response) 
                 });
             } 
 
+            // store current wallet balance for later
+            const currentBalance = rows[0].balance;
+
             // make sure logged in user is the owner of sender wallet
             if(rows[0].user_id !== currentUserId){   
                 conn.release();
@@ -72,13 +75,26 @@ transactionRouter.post('/transfer', authenticate, (req: Request, res: Response) 
             // no need to check if bank account exists, 3rd party integration would handle that
 
             if(walletExists){   
+                // check if wallet balance is sufficient 
+                
+                let walletBalance = rows[0].balance;
+
+                if(walletBalance < transactionAmount){
+                    conn.release();
+
+                    return res.send({
+                        message: 'You do not have sufficient balance to make this transaction',
+                        statusCode: 403,
+                    });
+                }
+
                 // create transaction
-                const sqlQuery = `INSERT INTO transactions(transaction_id, transaction_type, transaction_amount, 
+                const sqlQuery2 = `INSERT INTO transactions(transaction_id, transaction_type, transaction_amount, 
                     user_id, sender_wallet_id, receiver_wallet_id, receiver_bank_account) VALUES (?,?,?,?,?,?,?)`;
 
-                pool.query(sqlQuery, [randomUUID(), transactionType, transactionAmount, currentUserId, senderWalletId, 
+                pool.query(sqlQuery2, [randomUUID(), transactionType, transactionAmount, currentUserId, senderWalletId, 
                     receiverWalletId, receiverBankAccount], (err: any, rows: any) => {
-                        
+
                     if(err){
                         console.log('Encountered an error: ', err);
                         conn.release();
@@ -88,14 +104,50 @@ transactionRouter.post('/transfer', authenticate, (req: Request, res: Response) 
                             statusCode: 400
                         });      
                     }
+
+                    // update sender wallet balance
+                    const sqlQuery3 = `UPDATE wallets SET balance=? WHERE wallet_id=?`;
+                    const newBalance = currentBalance - transactionAmount; 
+                    
+                    pool.query(sqlQuery3, [newBalance, senderWalletId], (err: any, rows: any) => {
+                        if(err){
+                            console.log('Encountered an error: ', err);
+                            conn.release();
+                    
+                            return res.send({
+                                success: false,
+                                statusCode: 400
+                            });      
+                        }
+
+                        // nothing was updated, throw error
+                        if(rows.affectedRows < 1){  
+                            conn.release();
             
+                            return res.send({
+                                message: 'Wallet balance update failed',
+                                statusCode: 400,
+                            });
+                        }
+
+                        // don't release connection yet
+                    });
+
+
                     res.send({
-                        message: 'Successul',
+                        message: 'Transaction successful',
                         statusCode: 200,
                         // data: rows
                     });
             
                     conn.release();   // close connection
+                });
+            } else {
+                conn.release();
+
+                return res.send({
+                    message: 'Receiver wallet does not exist',
+                    statusCode: 404,
                 });
             }
             

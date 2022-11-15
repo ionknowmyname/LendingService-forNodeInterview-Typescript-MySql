@@ -28,7 +28,7 @@ const findUserIdFromEmail: any = async function findUserId(email: string) {
             return userId;
         });
 
-        return 'Test';
+        return 'Test from findUserIdFromEmail';
     });
     
 }
