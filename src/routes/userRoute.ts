@@ -143,7 +143,7 @@ userRouter.post('/login', (req: Request, res: Response) => {
                 });      
             }
 
-            console.log("hashed password from DB --> " + rows[0].password);
+            // console.log("hashed password from DB --> " + rows[0].password);
             const passwordfromDB = rows[0].password;
             bcrypt.compare(req.body.password, passwordfromDB, (err, result) => {
                 if(err){

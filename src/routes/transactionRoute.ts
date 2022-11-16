@@ -71,7 +71,21 @@ transactionRouter.post('/transfer', authenticate, async (req: Request, res: Resp
             }
 
             // make sure receiver exists 
-            const receiverWalletDetails = await getWalletByWalletId(receiverWalletId);
+            let receiverWalletDetails: any;
+
+            try {
+                receiverWalletDetails = await getWalletByWalletId(receiverWalletId);
+            } catch (error) {
+                console.log('Entered an error --> ', error);
+                res.send({
+                    success: false,
+                    statusCode: 500,
+                    message: 'Error retrieving receiver wallet details'
+                }) 
+                
+                return;
+            }
+             
             console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.wallet_id);
             console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.user_id);
             console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.balance);
