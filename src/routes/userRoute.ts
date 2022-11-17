@@ -92,14 +92,28 @@ userRouter.post('/register', (req: Request, res: Response) => {
                 const { email, phone } = req.body;
         
                 conn.query(sqlQuery2, [uuid(), email, phone, hash], (err: any, rows: any) => {
+                    
+
                     if(err){
+
+                        if(err.code === "ER_DUP_ENTRY"){
+                            console.log('Encountered an error: ', err);
+                            conn.release();
+                    
+                            return res.send({
+                                success: false,
+                                statusCode: 409,
+                                error: "Email aready exists"
+                            });      
+                        }
+                        
                         console.log('Encountered an error: ', err);
-                        conn.release();
+                        conn.release();                        
                 
                         return res.send({
                             success: false,
                             statusCode: 400,
-                            error: err
+                            error: "Error while Creating user, Try again"
                         });      
                     }
             
@@ -146,9 +160,7 @@ userRouter.post('/login', (req: Request, res: Response) => {
             // console.log("hashed password from DB --> " + rows[0].password);
             const passwordfromDB = rows[0].password;
             bcrypt.compare(req.body.password, passwordfromDB, (err, result) => {
-                if(err){
-                    console.log("first error");
-                    
+                if(err){                   
                     res.send({
                         message: "Failed",
                         statusCode: 500,
@@ -164,9 +176,7 @@ userRouter.post('/login', (req: Request, res: Response) => {
                         statusCode: 200,
                         data: { token: generateToken(req.body.email) }
                     });
-                } else {
-                    console.log("2nd error: " + err);
-                    
+                } else {                    
                     res.send({
                         message: "Failed",
                         statusCode: 500,
