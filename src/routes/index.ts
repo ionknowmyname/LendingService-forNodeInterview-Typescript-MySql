@@ -5,7 +5,7 @@ import transactionRouter from './transactionRoute';
 
 const router = Router();
 
-router.use('/', (req: Request, res: Response) => {
+router.get('/', (req: Request, res: Response) => {
     res.send("Deployed Successfully"); 
 });
 router.use('/users', userRouter);
