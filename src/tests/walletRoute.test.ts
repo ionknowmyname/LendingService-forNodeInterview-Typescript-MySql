@@ -1,9 +1,9 @@
 import supertest from 'supertest'
 import { Request, Response } from 'express';
-import { app } from '../src/server'
-import pool from '../src/config/dbConnection';
-import createWallet from '../src/handlers/walletHandler'
-import generateToken from '../src/config/generateToken';
+import { app } from '../server'
+import pool from '../config/dbConnection';
+import createWallet from '../handlers/walletHandler'
+import generateToken from '../config/generateToken';
 
 
 

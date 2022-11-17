@@ -1,9 +1,9 @@
 import supertest from 'supertest'
-import { app } from '../src/server'
+import { app } from '../server'
 import { Request, Response } from 'express'
-import pool from '../src/config/dbConnection';
-import generateToken from '../src/config/generateToken';
-import createTransfer from "../src/handlers/transactionHandler"
+import pool from '../config/dbConnection';
+import generateToken from '../config/generateToken';
+import createTransfer from "../handlers/transactionHandler"
 
 
 let getUsers = [
