@@ -1,6 +1,6 @@
 import pool from "../config/dbConnection";
 
-const getWalletByWalletId: any = async (walletId: any) => {
+let getWalletByWalletId: any = async (walletId: any) => {
 
     const sqlQuery = 'SELECT * FROM wallets WHERE wallet_id=?';
 
@@ -28,7 +28,7 @@ const getWalletByWalletId: any = async (walletId: any) => {
     
 }
 
-const updateWalletBalance: any = async (currentBalance: any, transactionAmount: any, walletId: any, forWho: any) => {
+let updateWalletBalance: any = async (currentBalance: any, transactionAmount: any, walletId: any, forWho: any) => {
 
     const fromPromise = new Promise((resolve, reject) => {
 
@@ -36,15 +36,15 @@ const updateWalletBalance: any = async (currentBalance: any, transactionAmount: 
         let newBalance: any;
         if(forWho === "sender"){
             newBalance = currentBalance - transactionAmount; 
-        } else {
-            newBalance = currentBalance + transactionAmount; 
+        } else { 
+            newBalance = currentBalance + transactionAmount;  // for receiver
         }
         
         pool.query(sqlQuery, [newBalance, walletId], (err: any, rows: any) => {
             if(err){
                 console.log('Encountered an error: ', err);
                 
-                return 'Encountered an error while updating wallet';    
+                return reject(err);   
             }
             // console.log("affected rows from walletUtils --> " + Object.keys(rows));
             
@@ -53,7 +53,7 @@ const updateWalletBalance: any = async (currentBalance: any, transactionAmount: 
             if(rows.affectedRows < 1){  
                 console.log('Wallet balance update failed from walletUtils');
                 
-                return "Wallet balance update failed from walletUtils"; 
+                return reject('Wallet balance update failed from walletUtils');
             }
 
             return resolve(rows); 

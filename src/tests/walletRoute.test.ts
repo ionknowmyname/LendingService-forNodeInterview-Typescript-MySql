@@ -33,7 +33,7 @@ describe("create wallet for user", () => {
         jest.resetAllMocks();
     });
    
-    it.skip("pop 404 error if user not found", async () => {
+    it("pop 404 error if user not found", async () => {
         // (pool as any).query.mockResolvedValueOnce({
         //     rows: [],
         // });
@@ -58,7 +58,7 @@ describe("create wallet for user", () => {
         */
     })
 
-    it.skip("pop 409 error if user has wallet", async () => {
+    it("pop 409 error if user has wallet", async () => {
 
         /* (pool as any).query.mockResolvedValueOnce({
             rows: [
@@ -89,7 +89,7 @@ describe("create wallet for user", () => {
         password: "34343"
     }
 
-    it("creates wallet successfully with 200 statusCode", async () => {
+    it.skip("creates wallet successfully with 200 statusCode", async () => {
 
         
         (pool as any).query = jest.fn().mockReturnThis();

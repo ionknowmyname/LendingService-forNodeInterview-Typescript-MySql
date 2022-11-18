@@ -4,6 +4,7 @@ import { Request, Response } from 'express'
 import pool from '../config/dbConnection';
 import generateToken from '../config/generateToken';
 import createTransfer from "../handlers/transactionHandler"
+import * as walletUtils from '../utils/walletUtils'
 
 
 let getUsers = [
@@ -44,18 +45,28 @@ describe.skip("create a transfer transaction", () => {
         jest.resetAllMocks();
     });
 
+    const requestBody = {
+        "transactionType": "WALLET-TO-WALLET",
+        "transactionAmount": 500,
+        "senderWalletId": "a8fa95ff-d640-458f-8135-27031b382e9c",
+        "receiverWalletId": "a69fff37-4c09-425e-8147-0f6c3b87b098"
+    }
+
     const req = {
         auth: {},
         header: {
             "Authorization": generateToken('33333@email.com')
         },
-        body: {
-            "transactionType": "WALLET-TO-WALLET",
-            "transactionAmount": 500,
-            "senderWalletId": "a8fa95ff-d640-458f-8135-27031b382e9c",
-            "receiverWalletId": "a69fff37-4c09-425e-8147-0f6c3b87b098"
-        }      
+        body: requestBody   
     };
+
+    const walletDetails = {
+        wallet_id: 'xxxxxxxxxxxxx',
+        user_id: 'yyyyyyyyyyy',
+        balance: 500
+    }
+
+    
 
 
     const response = {}
@@ -65,41 +76,53 @@ describe.skip("create a transfer transaction", () => {
         const currentUserEmail = "33333@email.com";
         const token = generateToken(currentUserEmail);
 
-        //createTransfer(request as Request, response as Response)
-        //expect(response).toEqual()
-
         const res = await supertest(app).post('/transactions/transfer')
                         .set('Authorization', `Bearer ${token}`)
-                        .send(req);
+                        .send(requestBody);
 
         expect(JSON.parse(res.text)).toStrictEqual({ message: 'Sender wallet not found', statusCode: 404 }); 
     })
 
     it("pop 403 error if logged in user not owner of sender wallet", async () => {
         
-        const currentUserEmail = "11111@email.com";
+        const currentUserEmail = "22222@email.com";
         const token = generateToken(currentUserEmail);
 
         const res = await supertest(app).post('/transactions/transfer')
                         .set('Authorization', `Bearer ${token}`)
-                        .send(req);
+                        .send(requestBody);
 
         expect(JSON.parse(res.text)).toStrictEqual({ message: 'Logged in User cannot transact with this wallet', statusCode: 403 }); 
     })
 
-    it("pop 500 error if receiver wallet not validated successfully", async () => {
+    it.skip("pop 500 error if receiver wallet not validated successfully", async () => {
         
         const currentUserEmail = "11111@email.com";
         const token = generateToken(currentUserEmail);
 
         const res = await supertest(app).post('/transactions/transfer')
                         .set('Authorization', `Bearer ${token}`)
-                        .send(req);
+                        .send(requestBody);
 
-        expect(JSON.parse(res.text)).toStrictEqual({ message: 'Sender wallet not found', statusCode: 404 }); 
+        // createTransfer.getWalletByWalletId = jest.fn().mockReturnValue(walletDetails);
+        // walletUtils.getWalletByWalletId = jest.fn().mockReturnValue(walletDetails);
+
+        expect(JSON.parse(res.text)).toStrictEqual({
+            success: false,
+            statusCode: 500,
+            message: 'Error retrieving receiver wallet details'
+        }); 
     })
 
     // not enough balance
+    it("pop 403 error if sneder balance not sufficient", async () => {
+        
+        
+    })
 
     // successful transaction
+    it("transaction successfully executed with 200", async () => {
+        
+        
+    })
 })
