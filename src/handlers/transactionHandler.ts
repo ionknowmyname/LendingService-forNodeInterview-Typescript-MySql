@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import pool from '../config/dbConnection';
 const uuid = require('uuid').v4
 import findUserIdFromEmail from '../utils/userUtils';
-import getWalletByWalletId from '../utils/walletUtils';
+import { getWalletByWalletId, updateWalletBalance } from '../utils/walletUtils';
 
 const createTransfer = async (req: Request, res: Response) => { 
   
@@ -82,9 +82,9 @@ const createTransfer = async (req: Request, res: Response) => {
                 return;
             }
              
-            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.wallet_id);
-            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.user_id);
-            console.log("receiverWalletDetails in transactionRoute --> " + receiverWalletDetails.balance);
+            console.log("receiverWalletDetailsWalletId in transactionHandler --> " + receiverWalletDetails.wallet_id);
+            console.log("receiverWalletDetailsUserId in transactionHandler --> " + receiverWalletDetails.user_id);
+            console.log("receiverWalletDetailsBalance in transactionHandler --> " + receiverWalletDetails.balance);
             
             const { wallet_id, user_id, balance } = receiverWalletDetails;
 
@@ -109,7 +109,7 @@ const createTransfer = async (req: Request, res: Response) => {
                     user_id, sender_wallet_id, receiver_wallet_id, receiver_bank_account) VALUES (?,?,?,?,?,?,?)`;
 
                 pool.query(sqlQuery2, [uuid(), transactionType, transactionAmount, currentUserId, senderWalletId, 
-                    receiverWalletId, receiverBankAccount], (err: any, rows: any) => { 
+                    receiverWalletId, receiverBankAccount], async (err: any, rows: any) => { 
 
                     if(err){
                         console.log('Encountered an error: ', err);
@@ -122,60 +122,65 @@ const createTransfer = async (req: Request, res: Response) => {
                     }
 
                     // update sender wallet balance
-                    const sqlQuery3 = `UPDATE wallets SET balance=? WHERE wallet_id=?`;
-                    const senderNewBalance = senderCurrentBalance - transactionAmount; 
-                    
-                    pool.query(sqlQuery3, [senderNewBalance, senderWalletId], (err: any, rows: any) => {
-                        if(err){
-                            console.log('Encountered an error: ', err);
+
+                    let updateSenderWalletBalanceResult: any;
+
+                    try {
+                        updateSenderWalletBalanceResult = await updateWalletBalance(senderCurrentBalance, transactionAmount, senderWalletId, "sender");
+                        console.log('updateSenderWalletBalanceResult in transaction handler --> ', updateSenderWalletBalanceResult);
+
+                        if(updateSenderWalletBalanceResult !== 1){
                             conn.release();
-                    
-                            return res.send({
+                            console.log('Error from updating Sender wallet balance');
+                            res.send({
                                 success: false,
-                                statusCode: 400
-                            });      
-                        }
-
-                        // nothing was updated, throw error
-                        if(rows.affectedRows < 1){  
-                            conn.release();
-            
-                            return res.send({
-                                message: 'Wallet balance update failed',
                                 statusCode: 400,
-                            });
+                                message: 'Error from updating Sender wallet balance'
+                            }) 
+                            
+                            return;
                         }
+                    } catch (error) {
+                        console.log('Entered an error --> ', error);
+                        res.send({
+                            success: false,
+                            statusCode: 500,
+                            message: 'Error retrieving update wallet balance status for sender'
+                        }) 
+                        
+                        return;
+                    }
 
-                        // don't release connection yet
-                    });
-
-
+                    
                     // update receiver balance
-                    const receiverNewBalance = balance + transactionAmount;
 
-                    pool.query(sqlQuery3, [receiverNewBalance, wallet_id], (err: any, rows: any) => {
-                        if(err){
-                            console.log('Encountered an error: ', err);
+                    let updateReceiverWalletBalanceResult: any;
+
+                    try {
+                        updateReceiverWalletBalanceResult = await updateWalletBalance(balance, transactionAmount, receiverWalletId, "receiver");
+                        console.log('updateReceiverWalletBalanceResult in transaction handler --> ', updateReceiverWalletBalanceResult);
+
+                        if(updateReceiverWalletBalanceResult !== 1){
                             conn.release();
-                    
-                            return res.send({
+                            console.log('Error from updating Receiver wallet balance');
+                            res.send({
                                 success: false,
-                                statusCode: 400
-                            });      
-                        }
-
-                        // nothing was updated, throw error
-                        if(rows.affectedRows < 1){  
-                            conn.release();
-            
-                            return res.send({
-                                message: 'Wallet balance update failed',
                                 statusCode: 400,
-                            });
+                                message: 'Error from updating Receiver wallet balance'
+                            }) 
+                            
+                            return;
                         }
-
-                        // don't release connection yet
-                    });
+                    } catch (error) {
+                        console.log('Entered an error --> ', error);
+                        res.send({
+                            success: false,
+                            statusCode: 500,
+                            message: 'Error retrieving update wallet balance status for receiver'
+                        }) 
+                        
+                        return;
+                    }
 
 
                     res.send({

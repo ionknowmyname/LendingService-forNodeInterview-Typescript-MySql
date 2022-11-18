@@ -1,9 +1,6 @@
 import pool from "../config/dbConnection";
 
 const getWalletByWalletId: any = async (walletId: any) => {
-    
-
-
 
     const sqlQuery = 'SELECT * FROM wallets WHERE wallet_id=?';
 
@@ -23,12 +20,51 @@ const getWalletByWalletId: any = async (walletId: any) => {
 
 
     const userWallet = await fromPromise as any;
-    console.log("currentUserWallet from walletUtils  --> " + userWallet.wallet_id);
-    console.log("currentUserWallet from walletUtils  --> " + userWallet.user_id);
-    console.log("currentUserWallet from walletUtils  --> " + userWallet.balance);
+    console.log("currentUserWalletId from walletUtils  --> " + userWallet.wallet_id);
+    console.log("currentUserWalletUserId from walletUtils  --> " + userWallet.user_id);
+    console.log("currentUserWalletBalance from walletUtils  --> " + userWallet.balance);
     
     return userWallet;   
     
 }
 
-export default getWalletByWalletId;
+const updateWalletBalance: any = async (currentBalance: any, transactionAmount: any, walletId: any, forWho: any) => {
+
+    const fromPromise = new Promise((resolve, reject) => {
+
+        const sqlQuery = `UPDATE wallets SET balance=? WHERE wallet_id=?`;
+        let newBalance: any;
+        if(forWho === "sender"){
+            newBalance = currentBalance - transactionAmount; 
+        } else {
+            newBalance = currentBalance + transactionAmount; 
+        }
+        
+        pool.query(sqlQuery, [newBalance, walletId], (err: any, rows: any) => {
+            if(err){
+                console.log('Encountered an error: ', err);
+                
+                return 'Encountered an error while updating wallet';    
+            }
+            // console.log("affected rows from walletUtils --> " + Object.keys(rows));
+            
+
+            // nothing was updated, throw error
+            if(rows.affectedRows < 1){  
+                console.log('Wallet balance update failed from walletUtils');
+                
+                return "Wallet balance update failed from walletUtils"; 
+            }
+
+            return resolve(rows); 
+        });
+
+    });
+
+    const rowResult = await fromPromise as any;
+    console.log("affected rows number from walletUtils  --> " + rowResult.affectedRows);
+    
+    return rowResult.affectedRows;    
+};
+
+export { getWalletByWalletId, updateWalletBalance };
