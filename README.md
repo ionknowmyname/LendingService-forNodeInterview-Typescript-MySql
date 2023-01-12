@@ -1,5 +1,10 @@
 MINI-LENDING SERVICE GUIDE
 
+Service contains 2 branches: 
+
+ - Master branch contains full project
+ - transactional branch implements transaction management for creating a transaction on a wallet 
+
 =================== Functionalities: ====================
 
 1. Can Create & Authenticate User
