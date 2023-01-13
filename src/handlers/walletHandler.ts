@@ -7,8 +7,22 @@ const createWallet = (req: Request, res: Response) => {
     // console.log("(<any>req).user from walletRoute: " + (<any>req).user);
     const currentUserEmail =  (<any>req).user;
 
-    // console.log('isbn from req.body: ' + req.body.isbn);
-  
+    pool.connect((err: any, conn: any) => {
+        if(err){
+            console.log('Entered an error: ', err);
+            res.send({
+                success: false,
+                statusCode: 500,
+                message: 'Error during connection'
+            }) 
+            
+            return;
+        }
+
+        console.log('connected on threadId --> ' + pool.threadId);
+
+    })
+
     pool.query('SELECT * FROM users WHERE email=?', [currentUserEmail], (err: any, rows: any) => {
         if(err){
             console.log('Encountered an error: ', err)

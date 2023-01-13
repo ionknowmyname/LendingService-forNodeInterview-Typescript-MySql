@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import pool from '../config/dbConnection';
+import poolConnection from '../config/poolConnect';
 import generateToken from '../config/generateToken';
 import authenticate from '../config/authentication';
 var cacheService = require("express-api-cache");
@@ -19,7 +20,7 @@ userRouter.get('/', (req: Request, res: Response) => {
 
 userRouter.get('/all', authenticate, cache("10 minutes"), (req: Request, res: Response) => {
 
-    pool.getConnection((err: any, conn: any) => {
+    pool.connect((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({
@@ -31,39 +32,43 @@ userRouter.get('/all', authenticate, cache("10 minutes"), (req: Request, res: Re
             return;
         }
 
-        const sqlQuery = 'SELECT id, email, phone, createdAt FROM users';
-        pool.query(sqlQuery, (err: any, rows: any) => {
-            if(err){
-                console.log('Encountered an error: ', err);
-                conn.release();
-        
-                return res.send({
-                    success: false,
-                    statusCode: 400
-                });      
-            }
-    
-            if(rows.length < 1){  // DB table is empty
-                return res.send({
-                    message: 'No Data found',
-                    statusCode: 404,
-                });
-            }
-    
-            res.send({
-                message: 'Successul',
-                statusCode: 200,
-                data: rows
-            });
-    
-            conn.release();   // close connection
-        });
+        console.log('connected on threadId --> ' + pool.threadId);
+
     });
+
+    const sqlQuery = 'SELECT id, email, phone, createdAt FROM users';
+    pool.query(sqlQuery, (err: any, rows: any) => {
+        if(err){
+            console.log('Encountered an error: ', err);
+            pool.end();
+    
+            return res.send({
+                success: false,
+                statusCode: 400
+            });      
+        }
+
+        if(rows.length < 1){  // DB table is empty
+            return res.send({
+                message: 'No Data found',
+                statusCode: 404,
+            });
+        }
+
+        res.send({
+            message: 'Successul',
+            statusCode: 200,
+            data: rows
+        });
+
+        pool.end();   // close connection
+    });
+
 });
   
 userRouter.post('/register', (req: Request, res: Response) => {
   
-    pool.getConnection((err: any, conn: any) => {
+    pool.connect((err: any, conn: any) => {
         if(err){
             console.log('Entered an error: ', err);
             res.send({
@@ -91,14 +96,13 @@ userRouter.post('/register', (req: Request, res: Response) => {
                 let sqlQuery2 = `INSERT INTO users (user_id, email, phone, password) VALUES (?,?,?,?)`;
                 const { email, phone } = req.body;
         
-                conn.query(sqlQuery2, [uuid(), email, phone, hash], (err: any, rows: any) => {
+                pool.query(sqlQuery2, [uuid(), email, phone, hash], (err: any, rows: any) => {
                     
-
                     if(err){
 
                         if(err.code === "ER_DUP_ENTRY"){
                             console.log('Encountered an error: ', err);
-                            conn.release();
+                            pool.end();
                     
                             return res.send({
                                 success: false,
@@ -108,7 +112,7 @@ userRouter.post('/register', (req: Request, res: Response) => {
                         }
                         
                         console.log('Encountered an error: ', err);
-                        conn.release();                        
+                        pool.end();                       
                 
                         return res.send({
                             success: false,
@@ -123,7 +127,7 @@ userRouter.post('/register', (req: Request, res: Response) => {
                         // data: rows
                     });
             
-                    conn.release();   // close connection
+                    pool.end();  // close connection
                 });
             }
 
@@ -132,63 +136,71 @@ userRouter.post('/register', (req: Request, res: Response) => {
     });
 });
 
-userRouter.post('/login', (req: Request, res: Response) => {
+userRouter.post('/login', async (req: Request, res: Response) => {
   
-    pool.getConnection((err: any, conn: any) => {
-        if(err){
-            console.log('Entered an error: ', err);
-            res.send({
-                success: false,
-                statusCode: 500,
-                message: 'Error during connection'
-            }) 
+    // pool.connect((err: any, conn: any) => {
+    //     if(err){
+    //         console.log('Entered an error: ', err);
+    //         res.send({
+    //             success: false,
+    //             statusCode: 500,
+    //             message: 'Error during connection'
+    //         }) 
             
-            return;
+    //         return;
+    //     }
+
+    //     console.log('connected on threadId --> ' + pool.threadId);
+
+    // });
+
+    await poolConnection;
+
+    pool.query('SELECT password FROM users WHERE email=?', [req.body.email], (err: any, rows: any) => {
+        if(err){
+            console.log('Encountered an error: ', err);
+            pool.end();
+    
+            return res.send({
+                success: false,
+                statusCode: 400
+            });      
         }
 
-        pool.query('SELECT password FROM users WHERE email=?', [req.body.email], (err: any, rows: any) => {
-            if(err){
+        // console.log("hashed password from DB --> " + rows[0].password);
+        const passwordfromDB = rows[0].password;
+        bcrypt.compare(req.body.password, passwordfromDB, (err, result) => {
+            if(err){ 
                 console.log('Encountered an error: ', err);
-                conn.release();
-        
-                return res.send({
-                    success: false,
-                    statusCode: 400
-                });      
+                pool.end();
+
+                res.send({
+                    message: "Failed during password validation",
+                    statusCode: 500
+                    // data: err  // don't return bcrypt error to client
+                })
+
+                return;
             }
 
-            // console.log("hashed password from DB --> " + rows[0].password);
-            const passwordfromDB = rows[0].password;
-            bcrypt.compare(req.body.password, passwordfromDB, (err, result) => {
-                if(err){                   
-                    res.send({
-                        message: "Failed",
-                        statusCode: 500,
-                        data: err
-                    })
+            if(result){
+                res.send({
+                    message: "Success",
+                    statusCode: 200,
+                    data: { token: generateToken(req.body.email) }
+                });
+            } else {                    
+                res.send({
+                    message: "Failed",
+                    statusCode: 500,
+                    // data: result
+                });
 
-                    return;
-                }
-
-                if(result){
-                    res.send({
-                        message: "Success",
-                        statusCode: 200,
-                        data: { token: generateToken(req.body.email) }
-                    });
-                } else {                    
-                    res.send({
-                        message: "Failed",
-                        statusCode: 500,
-                        data: result
-                    });
-
-                    return;
-                }
-            });
-            
-            conn.release();  // close connection
-        });           
+                return;
+            }
+        });
+        
+        pool.end();  // close connection
     });
 });
 

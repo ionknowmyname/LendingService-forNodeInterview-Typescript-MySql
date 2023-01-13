@@ -88,90 +88,141 @@ const createTransfer = async (req: Request, res: Response) => {
                 });
             }
 
-            // create transaction
-            const sqlQuery2 = `INSERT INTO transactions(transaction_id, transaction_type, transaction_amount, 
-                user_id, sender_wallet_id, receiver_wallet_id, receiver_bank_account) VALUES (?,?,?,?,?,?,?)`;
+            pool.beginTransaction((err: any) => {
 
-            pool.query(sqlQuery2, [uuid(), transactionType, transactionAmount, currentUserId, senderWalletId, 
-                receiverWalletId, receiverBankAccount], async (err: any, rows: any) => { 
 
-                if(err){
-                    console.log('Encountered an error: ', err);
-            
-                    return res.send({
-                        success: false,
-                        statusCode: 400
-                    });      
-                }
+                // create transaction
+                const sqlQuery2 = `INSERT INTO transactions(transaction_id, transaction_type, transaction_amount, 
+                    user_id, sender_wallet_id, receiver_wallet_id, receiver_bank_account) VALUES (?,?,?,?,?,?,?)`;
 
-                // update sender wallet balance
+                pool.query(sqlQuery2, [uuid(), transactionType, transactionAmount, currentUserId, senderWalletId, 
+                    receiverWalletId, receiverBankAccount], async (err: any, rows: any) => { 
 
-                let updateSenderWalletBalanceResult: any;
-
-                try {
-                    updateSenderWalletBalanceResult = await updateWalletBalance(senderCurrentBalance, transactionAmount, senderWalletId, "sender");
-                    console.log('updateSenderWalletBalanceResult in transaction handler --> ', updateSenderWalletBalanceResult);
-
-                    if(updateSenderWalletBalanceResult !== 1){
-                        console.log('Error from updating Sender wallet balance');
-                        res.send({
-                            success: false,
-                            statusCode: 400,
-                            message: 'Error from updating Sender wallet balance'
-                        }) 
-                        
-                        return;
-                    }
-                } catch (error) {
-                    console.log('Entered an error --> ', error);
-                    res.send({
-                        success: false,
-                        statusCode: 500,
-                        message: 'Error retrieving update wallet balance status for sender'
-                    }) 
-                    
-                    return;
-                }
-
+                    if(err){
+                        console.log('Encountered an error: ', err);
                 
-                // update receiver balance
+                        pool.rollback(() => {
+                            // throw err;
 
-                let updateReceiverWalletBalanceResult: any;
+                            return res.send({
+                                success: false,
+                                statusCode: 400
+                            });
+                        });
+                        
+                        // return res.send({
+                        //     success: false,
+                        //     statusCode: 400
+                        // });      
+                    }
 
-                try {
-                    updateReceiverWalletBalanceResult = await updateWalletBalance(balance, transactionAmount, receiverWalletId, "receiver");
-                    console.log('updateReceiverWalletBalanceResult in transaction handler --> ', updateReceiverWalletBalanceResult);
+                    // update sender wallet balance
 
-                    if(updateReceiverWalletBalanceResult !== 1){
-                        console.log('Error from updating Receiver wallet balance');
+                    let updateSenderWalletBalanceResult: any;
+
+                    try {
+                        updateSenderWalletBalanceResult = await updateWalletBalance(senderCurrentBalance, transactionAmount, senderWalletId, "sender");
+                        console.log('updateSenderWalletBalanceResult in transaction handler --> ', updateSenderWalletBalanceResult);
+
+                        if(updateSenderWalletBalanceResult !== 1){
+                            console.log('Error from updating Sender wallet balance');
+
+                            pool.rollback(() => {
+                                // throw err;
+    
+                                return res.send({
+                                    success: false,
+                                    statusCode: 400,
+                                    message: 'Error from updating Sender wallet balance'
+                                });
+                            });
+
+
+                            // res.send({
+                            //     success: false,
+                            //     statusCode: 400,
+                            //     message: 'Error from updating Sender wallet balance'
+                            // }) 
+                            
+                            // return;
+                        }
+                    } catch (error) {
+                        console.log('Entered an error --> ', error);
                         res.send({
                             success: false,
-                            statusCode: 400,
-                            message: 'Error from updating Receiver wallet balance'
+                            statusCode: 500,
+                            message: 'Error retrieving update wallet balance status for sender'
                         }) 
                         
                         return;
                     }
-                } catch (error) {
-                    console.log('Entered an error --> ', error);
-                    res.send({
-                        success: false,
-                        statusCode: 500,
-                        message: 'Error retrieving update wallet balance status for receiver'
-                    }) 
+
                     
-                    return;
-                }
+                    // update receiver balance
 
+                    let updateReceiverWalletBalanceResult: any;
 
-                res.send({
-                    message: 'Transaction successful',
-                    statusCode: 200,
-                    // data: rows
+                    try {
+                        updateReceiverWalletBalanceResult = await updateWalletBalance(balance, transactionAmount, receiverWalletId, "receiver");
+                        console.log('updateReceiverWalletBalanceResult in transaction handler --> ', updateReceiverWalletBalanceResult);
+
+                        if(updateReceiverWalletBalanceResult !== 1){
+                            console.log('Error from updating Receiver wallet balance');
+
+                            pool.rollback(() => {
+                                // throw err;
+    
+                                return res.send({
+                                    success: false,
+                                    statusCode: 400,
+                                    message: 'Error from updating Receiver wallet balance'
+                                });
+                            });
+
+                            // res.send({
+                            //     success: false,
+                            //     statusCode: 400,
+                            //     message: 'Error from updating Receiver wallet balance'
+                            // }) 
+                            
+                            // return;
+                        }
+                    } catch (error) {
+                        console.log('Entered an error --> ', error);
+                        res.send({
+                            success: false,
+                            statusCode: 500,
+                            message: 'Error retrieving update wallet balance status for receiver'
+                        }) 
+                        
+                        return;
+                    }
+
+                    // EVERYTHING SUCCESSFUL, now commit to DB
+
+                    pool.commit((err) => {
+                        if (err) { 
+                            console.log('Entered an error --> ', err);
+
+                            pool.rollback(() => {
+                                // throw err;
+                                
+                                res.send({
+                                    success: false,
+                                    statusCode: 500,
+                                    message: 'Error while committing to DB'
+                                }) 
+                            });
+                        }
+
+                    });
+            
+                    // pool.query closes connection by itself  
                 });
-        
-                // pool.query closes connection by itself  
-            });
+
+            })
+
+            
         } else {
 
             return res.send({
